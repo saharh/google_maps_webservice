@@ -103,12 +103,13 @@ class GoogleMapsPlaces extends GoogleWebService {
   }
 
   Future<PlacesDetailsResponse> getDetailsByPlaceId(String placeId,
-      {String sessionToken, String extensions, String language}) async {
+      {String sessionToken, String extensions, String language, List<String> fields}) async {
     final url = buildDetailsUrl(
         placeId: placeId,
         sessionToken: sessionToken,
         extensions: extensions,
-        language: language);
+        language: language,
+        fields: fields);
     return _decodeDetailsResponse(await doGet(url));
   }
 
@@ -245,6 +246,7 @@ class GoogleMapsPlaces extends GoogleWebService {
     String sessionToken,
     String extensions,
     String language,
+    List<String> fields
   }) {
     if (placeId != null && reference != null) {
       throw new ArgumentError(
@@ -259,6 +261,9 @@ class GoogleMapsPlaces extends GoogleWebService {
     };
     if (sessionToken != null) {
       params.putIfAbsent("sessiontoken", () => sessionToken);
+    }
+    if (fields != null && fields.isNotEmpty) {
+      params.putIfAbsent("fields", () => fields.join(","));
     }
 
     if (apiKey != null) {
