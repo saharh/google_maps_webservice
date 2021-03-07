@@ -14,11 +14,13 @@ class GoogleMapsDirections extends GoogleWebService {
     String apiKey,
     String baseUrl,
     Client httpClient,
+    Map<String, dynamic> apiHeaders,
   }) : super(
           apiKey: apiKey,
           baseUrl: baseUrl,
           url: _directionsUrl,
           httpClient: httpClient,
+          apiHeaders: apiHeaders,
         );
 
   Future<DirectionsResponse> directions(
@@ -27,7 +29,8 @@ class GoogleMapsDirections extends GoogleWebService {
     TravelMode travelMode,
     List<Waypoint> waypoints,
     bool alternatives,
-    RouteType avoid,
+    @deprecated RouteType avoid,
+    List<RouteType> avoids,
     String language,
     Unit units,
     String region,
@@ -37,12 +40,17 @@ class GoogleMapsDirections extends GoogleWebService {
     TrafficModel trafficModel,
     TransitRoutingPreferences transitRoutingPreference,
   }) async {
+    if (avoids != null && avoid != null) {
+      avoids.add(avoid);
+    }
+
     final url = buildUrl(
       origin: origin,
       destination: destination,
       travelMode: travelMode,
       waypoints: waypoints,
-      avoid: avoid,
+      alternatives: alternatives,
+      avoids: avoids,
       language: language,
       units: units,
       region: region,
@@ -52,7 +60,7 @@ class GoogleMapsDirections extends GoogleWebService {
       trafficModel: trafficModel,
       transitRoutingPreference: transitRoutingPreference,
     );
-    return _decode(await doGet(url));
+    return _decode(await doGet(url, headers: apiHeaders));
   }
 
   Future<DirectionsResponse> directionsWithLocation(
@@ -61,7 +69,8 @@ class GoogleMapsDirections extends GoogleWebService {
     TravelMode travelMode,
     List<Waypoint> waypoints,
     bool alternatives,
-    RouteType avoid,
+    @deprecated RouteType avoid,
+    List<RouteType> avoids,
     String language,
     Unit units,
     String region,
@@ -71,10 +80,15 @@ class GoogleMapsDirections extends GoogleWebService {
     TrafficModel trafficModel,
     TransitRoutingPreferences transitRoutingPreference,
   }) async {
+    if (avoids != null && avoid != null) {
+      avoids.add(avoid);
+    }
+
     return directions(origin, destination,
         travelMode: travelMode,
         waypoints: waypoints,
-        avoid: avoid,
+        alternatives: alternatives,
+        avoids: avoids,
         language: language,
         units: units,
         region: region,
@@ -91,7 +105,8 @@ class GoogleMapsDirections extends GoogleWebService {
     TravelMode travelMode,
     List<Waypoint> waypoints,
     bool alternatives,
-    RouteType avoid,
+    @deprecated RouteType avoid,
+    List<RouteType> avoids,
     String language,
     Unit units,
     String region,
@@ -101,12 +116,17 @@ class GoogleMapsDirections extends GoogleWebService {
     TrafficModel trafficModel,
     TransitRoutingPreferences transitRoutingPreference,
   }) async {
+    if (avoids != null && avoid != null) {
+      avoids.add(avoid);
+    }
+
     return directions(
       origin,
       destination,
       travelMode: travelMode,
       waypoints: waypoints,
-      avoid: avoid,
+      alternatives: alternatives,
+      avoids: avoids,
       language: language,
       units: units,
       region: region,
@@ -124,7 +144,8 @@ class GoogleMapsDirections extends GoogleWebService {
     TravelMode travelMode,
     List<Waypoint> waypoints,
     bool alternatives,
-    RouteType avoid,
+    @deprecated RouteType avoid,
+    List<RouteType> avoids,
     String language,
     Unit units,
     String region,
@@ -142,7 +163,8 @@ class GoogleMapsDirections extends GoogleWebService {
     }
     if (departureTime != null &&
         departureTime is! DateTime &&
-        departureTime is! num) {
+        departureTime is! num &&
+        departureTime != 'now') {
       throw ArgumentError("'departureTime' must be a '$num' or a '$DateTime'");
     }
     if (arrivalTime != null &&
@@ -150,6 +172,13 @@ class GoogleMapsDirections extends GoogleWebService {
         arrivalTime is! num) {
       throw ArgumentError("'arrivalTime' must be a '$num' or a '$DateTime'");
     }
+
+    if (waypoints?.isNotEmpty == true && alternatives == true) {
+      throw ArgumentError(
+        "'alternatives' is only available for requests without intermediate waypoints",
+      );
+    }
+
     final params = {
       'origin': origin != null && origin is String
           ? Uri.encodeComponent(origin)
@@ -160,7 +189,8 @@ class GoogleMapsDirections extends GoogleWebService {
       'mode': travelModeToString(travelMode),
       'waypoints': waypoints,
       'alternatives': alternatives,
-      'avoid': routeTypeToString(avoid),
+      'avoid':
+          avoids?.map(routeTypeToString)?.join('|') ?? routeTypeToString(avoid),
       'language': language,
       'units': unitToString(units),
       'region': region,
@@ -215,6 +245,16 @@ class DirectionsResponse extends GoogleResponseStatus {
           })
           ?.toList()
           ?.cast<Route>());
+
+  @override
+  Map<String, dynamic> toJson() {
+    final map = super.toJson();
+    map['status'] = status;
+    map['error_message'] = errorMessage;
+    map['geocoded_waypoints'] = geocodedWaypoints;
+    map['routes'] = routes;
+    return map;
+  }
 }
 
 class Waypoint {
@@ -248,7 +288,7 @@ class GeocodedWaypoint {
   final List<String> types;
 
   /// JSON partial_match
-  final String partialMatch;
+  final bool partialMatch;
 
   GeocodedWaypoint(
     this.geocoderStatus,
@@ -262,6 +302,15 @@ class GeocodedWaypoint {
       json['place_id'],
       (json['types'] as List)?.cast<String>(),
       json['partial_match']);
+
+  Map<String, dynamic> toJson() {
+    return {
+      'geocoder_status': geocoderStatus,
+      'place_id': placeId,
+      'types': types,
+      'partial_match': partialMatch,
+    };
+  }
 }
 
 class Route {
@@ -308,6 +357,19 @@ class Route {
           Bounds.fromJson(json['bounds']),
           Fare.fromJson(json['fare']))
       : null;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'summary': summary,
+      'legs': legs,
+      'copyrights': copyrights,
+      'overview_polyline': overviewPolyline,
+      'warnings': warnings,
+      'waypointOrder': waypointOrder,
+      'bounds': bounds.toJson(),
+      'fare': fare,
+    };
+  }
 }
 
 abstract class _Step {
@@ -383,6 +445,22 @@ class Leg extends _Step {
           Value.fromJson(json['duration']),
           Value.fromJson(json['distance']))
       : null;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'steps': steps,
+      'start_address': startAddress,
+      'end_address': endAddress,
+      'duration_in_traffic':
+          (durationInTraffic != null) ? durationInTraffic.toJson() : null,
+      'arrival_time': (arrivalTime != null) ? arrivalTime.toJson() : null,
+      'departure_time': (departureTime != null) ? departureTime.toJson() : null,
+      'start_location': startLocation.toJson(),
+      'end_location': endLocation.toJson(),
+      'duration': (duration != null) ? duration.toJson() : null,
+      'distance': (distance != null) ? distance.toJson() : null,
+    };
+  }
 }
 
 class Step extends _Step {
@@ -391,7 +469,7 @@ class Step extends _Step {
 
   /// JSON html_instructions
   final String htmlInstructions;
-
+  final String maneuver;
   final Polyline polyline;
 
   /// JSON transit_details
@@ -400,6 +478,7 @@ class Step extends _Step {
   Step(
     this.travelMode,
     this.htmlInstructions,
+    this.maneuver,
     this.polyline,
     this.transitDetails,
     Location startLocation,
@@ -417,6 +496,7 @@ class Step extends _Step {
       ? Step(
           stringToTravelMode(json['travel_mode']),
           json['html_instructions'],
+          json['maneuver'],
           Polyline.fromJson(json['polyline']),
           TransitDetails.fromJson(json['transit_details']),
           Location.fromJson(json['start_location']),
@@ -424,6 +504,21 @@ class Step extends _Step {
           Value.fromJson(json['duration']),
           Value.fromJson(json['distance']))
       : null;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'travel_mode': travelModeToString(travelMode),
+      'html_instructions': htmlInstructions,
+      'maneuver': maneuver,
+      'polyline': (polyline != null) ? polyline.toJson() : null,
+      'transit_details':
+          (transitDetails != null) ? transitDetails.toJson() : null,
+      'start_location': (startLocation != null) ? startLocation.toJson() : null,
+      'end_location': (endLocation != null) ? endLocation.toJson() : null,
+      'duration': (duration != null) ? duration.toJson() : null,
+      'distance': (distance != null) ? distance.toJson() : null,
+    };
+  }
 }
 
 class Polyline {
@@ -433,6 +528,12 @@ class Polyline {
 
   factory Polyline.fromJson(Map json) =>
       json != null ? Polyline(json['points']) : null;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'points': points,
+    };
+  }
 }
 
 class Value {
@@ -443,6 +544,13 @@ class Value {
 
   factory Value.fromJson(Map json) =>
       json != null ? Value(json['value'], json['text']) : null;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'value': value,
+      'text': text,
+    };
+  }
 }
 
 class Fare extends Value {
@@ -452,6 +560,13 @@ class Fare extends Value {
 
   factory Fare.fromJson(Map json) =>
       json != null ? Fare(json['currency'], json['value'], json['text']) : null;
+
+  @override
+  Map<String, dynamic> toJson() {
+    final map = super.toJson();
+    map['currency'] = currency;
+    return map;
+  }
 }
 
 class Time extends Value {
@@ -463,6 +578,13 @@ class Time extends Value {
   factory Time.fromJson(Map json) => json != null
       ? Time(json['time_zone'], json['value'], json['text'])
       : null;
+
+  @override
+  Map<String, dynamic> toJson() {
+    final map = super.toJson();
+    map['time_zone'] = timeZone;
+    return map;
+  }
 }
 
 class TransitDetails {
@@ -505,6 +627,18 @@ class TransitDetails {
           json['headway'],
           json['num_stops'])
       : null;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'arrival_stop': (arrivalStop != null) ? arrivalStop.toJson() : null,
+      'departure_stop': (departureStop != null) ? departureStop.toJson() : null,
+      'arrival_time': (arrivalTime != null) ? arrivalTime.toJson() : null,
+      'departure_time': (departureTime != null) ? departureTime.toJson() : null,
+      'headsign': headsign,
+      'headway': headway,
+      'num_stops': numStops,
+    };
+  }
 }
 
 class Stop {
@@ -516,6 +650,13 @@ class Stop {
   factory Stop.fromJson(Map json) => json != null
       ? Stop(json['name'], Location.fromJson(json['location']))
       : null;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'location': (location != null) ? location.toJson() : null,
+    };
+  }
 }
 
 class Line {
@@ -559,6 +700,19 @@ class Line {
           json['text_color'],
           VehicleType.fromJson(json['vehicle']))
       : null;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'short_name': shortName,
+      'color': color,
+      'agencies': agencies,
+      'url': url,
+      'icon': icon,
+      'text_color': textColor,
+      'vehicle': (vehicle != null) ? vehicle.toJson() : null,
+    };
+  }
 }
 
 class TransitAgency {
@@ -571,6 +725,14 @@ class TransitAgency {
   factory TransitAgency.fromJson(Map json) => json != null
       ? TransitAgency(json['name'], json['url'], json['phone'])
       : null;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'url': url,
+      'phone': phone,
+    };
+  }
 }
 
 class VehicleType {
@@ -592,6 +754,15 @@ class VehicleType {
       ? VehicleType(
           json['name'], json['type'], json['icon'], json['local_icon'])
       : null;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'type': type,
+      'icon': icon,
+      'local_icon': localIcon,
+    };
+  }
 
   bool isType(String type) => type.toLowerCase() == this.type.toLowerCase();
 

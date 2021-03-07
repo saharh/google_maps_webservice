@@ -1,15 +1,12 @@
-library google_maps_webservice.places.test;
-
 import 'dart:async';
 import 'dart:convert';
-import 'package:http/http.dart';
-import 'package:test/test.dart';
-import 'package:google_maps_webservice/places.dart';
 
-Future<void> launch([Client client]) async {
+import 'package:google_maps_webservice/places.dart';
+import 'package:test/test.dart';
+
+Future<void> main() async {
   final apiKey = 'MY_API_KEY';
-  GoogleMapsPlaces places =
-      GoogleMapsPlaces(apiKey: apiKey, httpClient: client);
+  var places = GoogleMapsPlaces(apiKey: apiKey);
 
   tearDownAll(() {
     places.dispose();
@@ -18,7 +15,7 @@ Future<void> launch([Client client]) async {
   group('Google Maps Places', () {
     group('nearbysearch build url', () {
       test('basic', () {
-        String url = places.buildNearbySearchUrl(
+        var url = places.buildNearbySearchUrl(
             location: Location(-33.8670522, 151.1957362), radius: 500);
 
         expect(
@@ -28,7 +25,7 @@ Future<void> launch([Client client]) async {
       });
 
       test('with type and keyword', () {
-        String url = places.buildNearbySearchUrl(
+        var url = places.buildNearbySearchUrl(
             location: Location(-33.8670522, 151.1957362),
             radius: 500,
             type: 'restaurant',
@@ -41,7 +38,7 @@ Future<void> launch([Client client]) async {
       });
 
       test('with language', () {
-        String url = places.buildNearbySearchUrl(
+        var url = places.buildNearbySearchUrl(
             location: Location(-33.8670522, 151.1957362),
             radius: 500,
             language: 'fr');
@@ -53,7 +50,7 @@ Future<void> launch([Client client]) async {
       });
 
       test('with min and maxprice', () {
-        String url = places.buildNearbySearchUrl(
+        var url = places.buildNearbySearchUrl(
             location: Location(-33.8670522, 151.1957362),
             radius: 500,
             minprice: PriceLevel.free,
@@ -66,7 +63,7 @@ Future<void> launch([Client client]) async {
       });
 
       test('build url with name', () {
-        String url = places.buildNearbySearchUrl(
+        var url = places.buildNearbySearchUrl(
             location: Location(-33.8670522, 151.1957362),
             radius: 500,
             name: 'cruise');
@@ -78,7 +75,7 @@ Future<void> launch([Client client]) async {
       });
 
       test('with rankby', () {
-        String url = places.buildNearbySearchUrl(
+        var url = places.buildNearbySearchUrl(
             location: Location(-33.8670522, 151.1957362),
             rankby: 'distance',
             name: 'cruise');
@@ -198,12 +195,15 @@ Future<void> launch([Client client]) async {
                 'https://maps.googleapis.com/maps/api/place/details/json?reference=REF&key=$apiKey'));
       });
 
-      test('with extensions', () {
+      test('with fields', () {
         expect(
-            places.buildDetailsUrl(
-                placeId: 'PLACE_ID', extensions: 'review_summary'),
+            places.buildDetailsUrl(placeId: 'PLACE_ID', fields: [
+              'address_component',
+              'opening_hours',
+              'geometry',
+            ]),
             equals(
-                'https://maps.googleapis.com/maps/api/place/details/json?placeid=PLACE_ID&extensions=review_summary&key=$apiKey'));
+                'https://maps.googleapis.com/maps/api/place/details/json?placeid=PLACE_ID&fields=address_component,opening_hours,geometry&key=$apiKey'));
       });
 
       test('with extensions', () {
@@ -228,15 +228,6 @@ Future<void> launch([Client client]) async {
     group('delete', () {});
 
     group('photo build url', () {
-      test('missing photoReference', () {
-        try {
-          // ignore: missing_required_param
-          places.buildPhotoUrl();
-        } catch (e) {
-          expect((e as ArgumentError).message,
-              equals("You must supply 'photoReference'"));
-        }
-      });
       test('missing maxWidth and maxHeight', () {
         try {
           places.buildPhotoUrl(photoReference: 'PHOTO_REFERENCE');
@@ -284,6 +275,16 @@ Future<void> launch([Client client]) async {
             ),
             equals(
                 'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=Amoeba&location=-33.8670522,151.1957362&key=$apiKey'));
+      });
+
+      test('with origin', () {
+        expect(
+            places.buildAutocompleteUrl(
+              input: 'Amoeba',
+              origin: Location(-33.8670522, 151.1957362),
+            ),
+            equals(
+                'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=Amoeba&origin=-33.8670522,151.1957362&key=$apiKey'));
       });
 
       test('with radius', () {
@@ -365,9 +366,9 @@ Future<void> launch([Client client]) async {
       });
     });
 
-    test('decode response', () {
-      PlacesSearchResponse response =
-          PlacesSearchResponse.fromJson(json.decode(_responseExample));
+    test('decode search response', () {
+      var response =
+          PlacesSearchResponse.fromJson(json.decode(_searchResponseExample));
 
       expect(response.isOkay, isTrue);
       expect(response.results, hasLength(equals(4)));
@@ -404,10 +405,33 @@ Future<void> launch([Client client]) async {
       expect(response.results.first.vicinity,
           equals('Pyrmont Bay Wharf Darling Dr, Sydney'));
     });
+
+    test('decode autocomplete response', () {
+      final decoded = json.decode(_autocompleteResponseExample);
+      final response = PlacesAutocompleteResponse.fromJson(decoded);
+
+      expect(response.isOkay, isTrue);
+      expect(response.errorMessage, isNull);
+
+      expect(response.predictions, hasLength(3));
+
+      final p1 = response.predictions.first;
+
+      expect(p1.description, 'Paris, France');
+      expect(p1.distanceMeters, 8030004);
+      expect(p1.id, '691b237b0322f28988f3ce03e321ff72a12167fd');
+      expect(p1.matchedSubstrings, hasLength(1));
+      expect(p1.matchedSubstrings.first, MatchedSubstring(0, 5));
+      expect(p1.placeId, 'ChIJD7fiBh9u5kcRYJSMaMOCCwQ');
+      expect(p1.reference,
+          'CjQlAAAA_KB6EEceSTfkteSSF6U0pvumHCoLUboRcDlAH05N1pZJLmOQbYmboEi0SwXBSoI2EhAhj249tFDCVh4R-PXZkPK8GhTBmp_6_lWljaf1joVs1SH2ttB_tw');
+      expect(p1.terms, [Term(0, 'Paris'), Term(7, 'France')]);
+      expect(p1.types, ['locality', 'political', 'geocode']);
+    });
   });
 }
 
-final _responseExample = '''
+final _searchResponseExample = '''
 {
    "html_attributions" : [],
    "results" : [
@@ -524,5 +548,127 @@ final _responseExample = '''
       }
    ],
    "status" : "OK"
+}
+''';
+
+final _autocompleteResponseExample = '''
+{
+  "status": "OK",
+  "predictions" : [
+      {
+         "description" : "Paris, France",
+         "distance_meters" : 8030004,
+         "id" : "691b237b0322f28988f3ce03e321ff72a12167fd",
+         "matched_substrings" : [
+            {
+               "length" : 5,
+               "offset" : 0
+            }
+         ],
+         "place_id" : "ChIJD7fiBh9u5kcRYJSMaMOCCwQ",
+         "reference" : "CjQlAAAA_KB6EEceSTfkteSSF6U0pvumHCoLUboRcDlAH05N1pZJLmOQbYmboEi0SwXBSoI2EhAhj249tFDCVh4R-PXZkPK8GhTBmp_6_lWljaf1joVs1SH2ttB_tw",
+         "terms" : [
+            {
+               "offset" : 0,
+               "value" : "Paris"
+            },
+            {
+               "offset" : 7,
+               "value" : "France"
+            }
+         ],
+         "types" : [ "locality", "political", "geocode" ]
+      },
+      {
+         "description" : "Paris-Madrid Grocery (Spanish Table Seattle), Western Avenue, Seattle, WA, USA",
+         "distance_meters" : 12597,
+         "id" : "f4231a82cfe0633a6a32e63538e61c18277d01c0",
+         "matched_substrings" : [
+            {
+               "length" : 5,
+               "offset" : 0
+            }
+         ],
+         "place_id" : "ChIJHcYlZ7JqkFQRlpy-6pytmPI",
+         "reference" : "ChIJHcYlZ7JqkFQRlpy-6pytmPI",
+         "structured_formatting" : {
+            "main_text" : "Paris-Madrid Grocery (Spanish Table Seattle)",
+            "main_text_matched_substrings" : [
+               {
+                  "length" : 5,
+                  "offset" : 0
+               }
+            ],
+            "secondary_text" : "Western Avenue, Seattle, WA, USA"
+         },
+         "terms" : [
+            {
+               "offset" : 0,
+               "value" : "Paris-Madrid Grocery (Spanish Table Seattle)"
+            },
+            {
+               "offset" : 46,
+               "value" : "Western Avenue"
+            },
+            {
+               "offset" : 62,
+               "value" : "Seattle"
+            },
+            {
+               "offset" : 71,
+               "value" : "WA"
+            },
+            {
+               "offset" : 75,
+               "value" : "USA"
+            }
+         ],
+         "types" : [
+            "grocery_or_supermarket",
+            "food",
+            "store",
+            "point_of_interest",
+            "establishment"
+         ]
+      },
+      {
+         "description" : "Paris, TX, USA",
+         "distance_meters" : 2712292,
+         "id" : "518e47f3d7f39277eb3bc895cb84419c2b43b5ac",
+         "matched_substrings" : [
+            {
+               "length" : 5,
+               "offset" : 0
+            }
+         ],
+         "place_id" : "ChIJmysnFgZYSoYRSfPTL2YJuck",
+         "reference" : "ChIJmysnFgZYSoYRSfPTL2YJuck",
+         "structured_formatting" : {
+            "main_text" : "Paris",
+            "main_text_matched_substrings" : [
+               {
+                  "length" : 5,
+                  "offset" : 0
+               }
+            ],
+            "secondary_text" : "TX, USA"
+         },
+         "terms" : [
+            {
+               "offset" : 0,
+               "value" : "Paris"
+            },
+            {
+               "offset" : 7,
+               "value" : "TX"
+            },
+            {
+               "offset" : 11,
+               "value" : "USA"
+            }
+         ],
+         "types" : [ "locality", "political", "geocode" ]
+      }
+  ]
 }
 ''';

@@ -16,11 +16,14 @@ class GoogleDistanceMatrix extends GoogleWebService {
     String apiKey,
     String baseUrl,
     Client httpClient,
+    Map<String, dynamic> apiHeaders,
   }) : super(
-            apiKey: apiKey,
-            baseUrl: baseUrl,
-            url: _distanceUrl,
-            httpClient: httpClient);
+          apiKey: apiKey,
+          baseUrl: baseUrl,
+          url: _distanceUrl,
+          httpClient: httpClient,
+          apiHeaders: apiHeaders,
+        );
 
   Future<DistanceResponse> _distance(
     List<dynamic> origin,
@@ -53,7 +56,7 @@ class GoogleDistanceMatrix extends GoogleWebService {
       transitRoutingPreference: transitRoutingPreference,
     );
 
-    return _decode(await doGet(url));
+    return _decode(await doGet(url, headers: apiHeaders));
   }
 
   Future<DistanceResponse> distanceWithLocation(
@@ -143,7 +146,8 @@ class GoogleDistanceMatrix extends GoogleWebService {
     }
     if (departureTime != null &&
         departureTime is! DateTime &&
-        departureTime is! num) {
+        departureTime is! num &&
+        departureTime != 'now') {
       throw ArgumentError("'departureTime' must be a '$num' or a '$DateTime'");
     }
     if (arrivalTime != null &&
@@ -161,6 +165,7 @@ class GoogleDistanceMatrix extends GoogleWebService {
           : destination,
       'mode': travelModeToString(travelMode),
       'language': languageCode,
+      'alternative': alternative,
       'region': region,
       'avoid': routeTypeToString(routeType),
       'units': unitToString(unit),
@@ -255,4 +260,11 @@ class Value {
 
   factory Value.fromJson(Map json) =>
       json != null ? Value(json['value'], json['text']) : null;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'value': value,
+      'text': text,
+    };
+  }
 }

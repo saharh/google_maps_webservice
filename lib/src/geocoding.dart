@@ -14,11 +14,13 @@ class GoogleMapsGeocoding extends GoogleWebService {
     String apiKey,
     String baseUrl,
     Client httpClient,
+    Map<String, dynamic> apiHeaders,
   }) : super(
           apiKey: apiKey,
           baseUrl: baseUrl,
           url: _geocodeUrl,
           httpClient: httpClient,
+          apiHeaders: apiHeaders,
         );
 
   Future<GeocodingResponse> searchByAddress(
@@ -34,7 +36,7 @@ class GoogleMapsGeocoding extends GoogleWebService {
         language: language,
         region: region,
         components: components);
-    return _decode(await doGet(url));
+    return _decode(await doGet(url, headers: apiHeaders));
   }
 
   Future<GeocodingResponse> searchByComponents(
@@ -48,7 +50,7 @@ class GoogleMapsGeocoding extends GoogleWebService {
         language: language,
         region: region,
         components: components);
-    return _decode(await doGet(url));
+    return _decode(await doGet(url, headers: apiHeaders));
   }
 
   Future<GeocodingResponse> searchByLocation(
@@ -62,7 +64,7 @@ class GoogleMapsGeocoding extends GoogleWebService {
         language: language,
         resultType: resultType,
         locationType: locationType);
-    return _decode(await doGet(url));
+    return _decode(await doGet(url, headers: apiHeaders));
   }
 
   Future<GeocodingResponse> searchByPlaceId(
@@ -76,7 +78,7 @@ class GoogleMapsGeocoding extends GoogleWebService {
         language: language,
         resultType: resultType,
         locationType: locationType);
-    return _decode(await doGet(url));
+    return _decode(await doGet(url, headers: apiHeaders));
   }
 
   String buildUrl({
@@ -179,6 +181,103 @@ class GeocodingResult {
           Geometry.fromJson(json['geometry']),
           json['partial_match'],
           json['place_id'],
+        )
+      : null;
+}
+
+class StreetAddress {
+  final Geometry geometry;
+  final String addressLine;
+  final String countryName;
+  final String countryCode;
+  final String featureName;
+  final String postalCode;
+  final String adminArea;
+  final String subAdminArea;
+  final String locality;
+  final String subLocality;
+
+  /// Route
+  final String thoroughfare;
+
+  /// Street Number
+  final String subThoroughfare;
+
+  StreetAddress(
+    this.geometry,
+    this.addressLine,
+    this.countryName,
+    this.countryCode,
+    this.featureName,
+    this.postalCode,
+    this.adminArea,
+    this.subAdminArea,
+    this.locality,
+    this.subLocality,
+    this.thoroughfare,
+    this.subThoroughfare,
+  );
+
+  factory StreetAddress.fromGeocodingResult(GeocodingResult geocodingResult) {
+    if (geocodingResult == null ||
+        !geocodingResult.types.contains('street_address')) return null;
+
+    AddressComponent search(String type) {
+      return geocodingResult.addressComponents.firstWhere(
+        (component) => component.types.contains(type),
+        orElse: () => null,
+      );
+    }
+
+    final country = search('country');
+
+    return StreetAddress(
+      geocodingResult.geometry,
+      geocodingResult.formattedAddress,
+      country?.longName,
+      country?.shortName,
+      search('featureName')?.longName ?? geocodingResult.formattedAddress,
+      search('postal_code')?.longName,
+      search('administrative_area_level_1')?.longName,
+      search('administrative_area_level_2')?.longName,
+      search('locality')?.longName,
+      (search('sublocality') ?? search('sublocality_level_1'))?.longName,
+      search('route')?.longName,
+      search('street_number')?.longName,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'geometry': geometry != null ? geometry.toJson() : null,
+      'addressLine': addressLine,
+      'countryName': countryName,
+      'countryCode': countryCode,
+      'featureName': featureName,
+      'postalCode': postalCode,
+      'adminArea': adminArea,
+      'subAdminArea': subAdminArea,
+      'locality': locality,
+      'subLocality': subLocality,
+      'thoroughfare': thoroughfare,
+      'subThoroughfare': subThoroughfare,
+    };
+  }
+
+  factory StreetAddress.fromJson(Map map) => map != null
+      ? StreetAddress(
+          Geometry.fromJson(map['geometry']),
+          map['addressLine'],
+          map['countryName'],
+          map['countryCode'],
+          map['featureName'],
+          map['postalCode'],
+          map['adminArea'],
+          map['subAdminArea'],
+          map['locality'],
+          map['subLocality'],
+          map['thoroughfare'],
+          map['subThoroughfare'],
         )
       : null;
 }

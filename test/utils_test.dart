@@ -1,13 +1,10 @@
-library google_maps_webservice.utils.test;
-
 import 'dart:async';
-import 'package:http/http.dart';
 import 'package:test/test.dart';
 import 'package:google_maps_webservice/src/utils.dart';
 
 class DateTimeInstance extends GoogleDateTime {}
 
-Future<void> launch([Client client]) async {
+Future<void> main() async {
   group('Google Maps Utils', () {
     group('abstract class GoogleDateTime', () {
       DateTimeInstance utility;
@@ -18,7 +15,7 @@ Future<void> launch([Client client]) async {
 
       group('dayTimeToDateTime', () {
         test('basic', () {
-          final DateTime mondayAt1130 = utility.dayTimeToDateTime(0, '2330');
+          final mondayAt1130 = utility.dayTimeToDateTime(0, '2330');
 
           expect(mondayAt1130.weekday, equals(1));
           expect(mondayAt1130.hour, equals(23));
@@ -32,5 +29,3 @@ Future<void> launch([Client client]) async {
     });
   });
 }
-
-Future<void> main() => launch();

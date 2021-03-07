@@ -13,6 +13,10 @@ class Location {
         )
       : null;
 
+  Map<String, dynamic> toJson() {
+    return {'lat': lat, 'lng': lng};
+  }
+
   @override
   String toString() => '$lat,$lng';
 }
@@ -42,6 +46,15 @@ class Geometry {
           Bounds.fromJson(json['bounds']),
         )
       : null;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'location': (location != null) ? location.toJson() : null,
+      'location_type': locationType,
+      'viewport': (viewport != null) ? viewport.toJson() : null,
+      'bounds': (bounds != null) ? bounds.toJson() : null,
+    };
+  }
 }
 
 class Bounds {
@@ -54,6 +67,13 @@ class Bounds {
       ? Bounds(Location.fromJson(json['northeast']),
           Location.fromJson(json['southwest']))
       : null;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'northeast': (northeast != null) ? northeast.toJson() : null,
+      'southwest': (southwest != null) ? southwest.toJson() : null,
+    };
+  }
 
   @override
   String toString() =>
@@ -85,6 +105,13 @@ abstract class GoogleResponseStatus {
   bool get isNotFound => status == notFound;
 
   GoogleResponseStatus(this.status, this.errorMessage);
+
+  Map<String, dynamic> toJson() {
+    return {
+      'status': status,
+      'errorMessage': errorMessage,
+    };
+  }
 }
 
 abstract class GoogleResponseList<T> extends GoogleResponseStatus {
@@ -120,6 +147,14 @@ class AddressComponent {
       ? AddressComponent((json['types'] as List)?.cast<String>(),
           json['long_name'], json['short_name'])
       : null;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'types': types,
+      'long_name': longName,
+      'short_name': shortName,
+    };
+  }
 }
 
 class Component {
@@ -227,16 +262,19 @@ String transitModeToString(TransitMode type) {
 enum TransitRoutingPreferences { lessWalking, fewerTransfers }
 
 TransitRoutingPreferences stringToTransitRoutingPreferences(String type) {
-  if (type.toLowerCase() == 'less_walking')
+  if (type.toLowerCase() == 'less_walking') {
     return TransitRoutingPreferences.lessWalking;
-  if (type.toLowerCase() == 'fewer_transfers')
+  }
+  if (type.toLowerCase() == 'fewer_transfers') {
     return TransitRoutingPreferences.fewerTransfers;
+  }
   return null;
 }
 
 String transitRoutingPreferencesToString(TransitRoutingPreferences type) {
   if (type == TransitRoutingPreferences.lessWalking) return 'less_walking';
-  if (type == TransitRoutingPreferences.fewerTransfers)
+  if (type == TransitRoutingPreferences.fewerTransfers) {
     return 'fewer_transfers';
+  }
   return null;
 }

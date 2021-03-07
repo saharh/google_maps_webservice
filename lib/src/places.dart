@@ -23,11 +23,14 @@ class GoogleMapsPlaces extends GoogleWebService {
     String apiKey,
     String baseUrl,
     Client httpClient,
+    Map<String, dynamic> apiHeaders,
   }) : super(
-            apiKey: apiKey,
-            baseUrl: baseUrl,
-            url: _placesUrl,
-            httpClient: httpClient);
+          apiKey: apiKey,
+          baseUrl: baseUrl,
+          url: _placesUrl,
+          httpClient: httpClient,
+          apiHeaders: apiHeaders,
+        );
 
   Future<PlacesSearchResponse> searchNearbyWithRadius(
     Location location,
@@ -51,7 +54,7 @@ class GoogleMapsPlaces extends GoogleWebService {
       name: name,
       pagetoken: pagetoken,
     );
-    return _decodeSearchResponse(await doGet(url));
+    return _decodeSearchResponse(await doGet(url, headers: apiHeaders));
   }
 
   Future<PlacesSearchResponse> searchNearbyWithRankBy(
@@ -76,7 +79,7 @@ class GoogleMapsPlaces extends GoogleWebService {
       name: name,
       pagetoken: pagetoken,
     );
-    return _decodeSearchResponse(await doGet(url));
+    return _decodeSearchResponse(await doGet(url, headers: apiHeaders));
   }
 
   Future<PlacesSearchResponse> searchByText(
@@ -89,11 +92,13 @@ class GoogleMapsPlaces extends GoogleWebService {
     String type,
     String pagetoken,
     String language,
+    String region,
   }) async {
     final url = buildTextSearchUrl(
       query: query,
       location: location,
       language: language,
+      region: region,
       type: type,
       radius: radius,
       minprice: minprice,
@@ -101,49 +106,59 @@ class GoogleMapsPlaces extends GoogleWebService {
       pagetoken: pagetoken,
       opennow: opennow,
     );
-    return _decodeSearchResponse(await doGet(url));
+    return _decodeSearchResponse(await doGet(url, headers: apiHeaders));
   }
 
   Future<PlacesDetailsResponse> getDetailsByPlaceId(String placeId,
-      {String sessionToken, String extensions, String language, List<String> fields}) async {
+      {String sessionToken,
+      List<String> fields,
+      String language,
+      String region,
+      List<String> fields}) async {
     final url = buildDetailsUrl(
-        placeId: placeId,
-        sessionToken: sessionToken,
-        extensions: extensions,
-        language: language,
-        fields: fields);
-    return _decodeDetailsResponse(await doGet(url));
+      placeId: placeId,
+      sessionToken: sessionToken,
+      fields: fields,
+      language: language,
+      region: region,
+      fields: fields
+    );
+    return _decodeDetailsResponse(await doGet(url, headers: apiHeaders));
   }
 
+  @deprecated
   Future<PlacesDetailsResponse> getDetailsByReference(
     String reference, {
     String sessionToken,
-    String extensions,
+    List<String> fields,
     String language,
   }) async {
     final url = buildDetailsUrl(
       reference: reference,
       sessionToken: sessionToken,
-      extensions: extensions,
+      fields: fields,
       language: language,
     );
-    return _decodeDetailsResponse(await doGet(url));
+    return _decodeDetailsResponse(await doGet(url, headers: apiHeaders));
   }
 
   Future<PlacesAutocompleteResponse> autocomplete(
     String input, {
     String sessionToken,
     num offset,
+    Location origin,
     Location location,
     num radius,
     String language,
     List<String> types,
     List<Component> components,
     bool strictbounds,
+    String region,
   }) async {
     final url = buildAutocompleteUrl(
       sessionToken: sessionToken,
       input: input,
+      origin: origin,
       location: location,
       offset: offset,
       radius: radius,
@@ -151,12 +166,18 @@ class GoogleMapsPlaces extends GoogleWebService {
       types: types,
       components: components,
       strictbounds: strictbounds,
+      region: region,
     );
-    return _decodeAutocompleteResponse(await doGet(url));
+    return _decodeAutocompleteResponse(await doGet(url, headers: apiHeaders));
   }
 
-  Future<PlacesAutocompleteResponse> queryAutocomplete(String input,
-      {num offset, Location location, num radius, String language}) async {
+  Future<PlacesAutocompleteResponse> queryAutocomplete(
+    String input, {
+    num offset,
+    Location location,
+    num radius,
+    String language,
+  }) async {
     final url = buildQueryAutocompleteUrl(
       input: input,
       location: location,
@@ -164,7 +185,7 @@ class GoogleMapsPlaces extends GoogleWebService {
       radius: radius,
       language: language,
     );
-    return _decodeAutocompleteResponse(await doGet(url));
+    return _decodeAutocompleteResponse(await doGet(url, headers: apiHeaders));
   }
 
   String buildNearbySearchUrl({
@@ -222,10 +243,12 @@ class GoogleMapsPlaces extends GoogleWebService {
     String type,
     String pagetoken,
     String language,
+    String region,
   }) {
     final params = {
       'query': query != null ? Uri.encodeComponent(query) : null,
       'language': language,
+      'region': region,
       'location': location,
       'radius': radius,
       'minprice': minprice?.index,
@@ -246,9 +269,9 @@ class GoogleMapsPlaces extends GoogleWebService {
     String placeId,
     String reference,
     String sessionToken,
-    String extensions,
     String language,
-    List<String> fields
+    List<String> fields,
+    String region,
   }) {
     if (placeId != null && reference != null) {
       throw ArgumentError("You must supply either 'placeid' or 'reference'");
@@ -258,13 +281,15 @@ class GoogleMapsPlaces extends GoogleWebService {
       'placeid': placeId,
       'reference': reference,
       'language': language,
-      'extensions': extensions,
+      'region': region,
     };
+
+    if (fields?.isNotEmpty == true) {
+      params['fields'] = fields.join(',');
+    }
+
     if (sessionToken != null) {
       params.putIfAbsent('sessiontoken', () => sessionToken);
-    }
-    if (fields != null && fields.isNotEmpty) {
-      params.putIfAbsent("fields", () => fields.join(","));
     }
 
     if (apiKey != null) {
@@ -278,22 +303,26 @@ class GoogleMapsPlaces extends GoogleWebService {
     String input,
     String sessionToken,
     num offset,
+    Location origin,
     Location location,
     num radius,
     String language,
     List<String> types,
     List<Component> components,
     bool strictbounds,
+    String region,
   }) {
     final params = {
       'input': input != null ? Uri.encodeComponent(input) : null,
       'language': language,
+      'origin': origin,
       'location': location,
       'radius': radius,
       'types': types,
       'components': components,
       'strictbounds': strictbounds,
       'offset': offset,
+      'region': region,
     };
     if (apiKey != null) {
       params.putIfAbsent('key', () => apiKey);
@@ -386,10 +415,12 @@ class PlacesSearchResponse extends GoogleResponseList<PlacesSearchResult> {
           json['status'],
           json['error_message'],
           json['results']
-              .map((r) => PlacesSearchResult.fromJson(r))
-              .toList()
-              .cast<PlacesSearchResult>(),
-          (json['html_attributions'] as List).cast<String>(),
+              ?.map((r) => PlacesSearchResult.fromJson(r))
+              ?.toList()
+              ?.cast<PlacesSearchResult>(),
+          json['html_attributions'] != null
+              ? (json['html_attributions'] as List).cast<String>()
+              : [],
           json['next_page_token'])
       : null;
 }
@@ -453,9 +484,11 @@ class PlacesSearchResult {
   factory PlacesSearchResult.fromJson(Map json) => json != null
       ? PlacesSearchResult(
           json['icon'],
-          Geometry.fromJson(json['geometry']),
+          json['geometry'] != null ? Geometry.fromJson(json['geometry']) : null,
           json['name'],
-          OpeningHours.fromJson(json['opening_hours']),
+          json['opening_hours'] != null
+              ? OpeningHours.fromJson(json['opening_hours'])
+              : null,
           json['photos']
               ?.map((p) => Photo.fromJson(p))
               ?.toList()
@@ -470,7 +503,7 @@ class PlacesSearchResult {
               ? PriceLevel.values.elementAt(json['price_level'])
               : null,
           json['rating'],
-          (json['types'] as List)?.cast<String>(),
+          json['types'] != null ? (json['types'] as List)?.cast<String>() : [],
           json['vicinity'],
           json['formatted_address'],
           json['permanently_closed'],
@@ -561,9 +594,9 @@ class PlaceDetails {
   factory PlaceDetails.fromJson(Map json) => json != null
       ? PlaceDetails(
           json['address_components']
-              .map((addr) => AddressComponent.fromJson(addr))
-              .toList()
-              .cast<AddressComponent>(),
+              ?.map((addr) => AddressComponent.fromJson(addr))
+              ?.toList()
+              ?.cast<AddressComponent>(),
           json['adr_address'],
           json['formatted_address'],
           json['formatted_phone_number'],
@@ -571,9 +604,11 @@ class PlaceDetails {
           json['reference'],
           json['icon'],
           json['name'],
-          OpeningHoursDetail.fromJson(
-            json['opening_hours'],
-          ),
+          json['opening_hours'] != null
+              ? OpeningHoursDetail.fromJson(
+                  json['opening_hours'],
+                )
+              : null,
           json['photos']
               ?.map((p) => Photo.fromJson(p))
               ?.toList()
@@ -587,7 +622,7 @@ class PlaceDetails {
               : null,
           json['rating'],
           json['scope'],
-          (json['types'] as List)?.cast<String>(),
+          json['types'] != null ? (json['types'] as List)?.cast<String>() : [],
           json['url'],
           json['vicinity'],
           json['utc_offset'],
@@ -596,7 +631,7 @@ class PlaceDetails {
               ?.map((r) => Review.fromJson(r))
               ?.toList()
               ?.cast<Review>(),
-          Geometry.fromJson(json['geometry']))
+          json['geometry'] != null ? Geometry.fromJson(json['geometry']) : null)
       : null;
 }
 
@@ -627,7 +662,9 @@ class OpeningHoursDetail extends OpeningHours {
               ?.map((p) => OpeningHoursPeriod.fromJson(p))
               ?.toList()
               ?.cast<OpeningHoursPeriod>(),
-          (json['weekday_text'] as List)?.cast<String>())
+          json['weekday_text'] != null
+              ? (json['weekday_text'] as List)?.cast<String>()
+              : [])
       : null;
 }
 
@@ -675,8 +712,13 @@ class Photo {
   );
 
   factory Photo.fromJson(Map json) => json != null
-      ? Photo(json['photo_reference'], json['height'], json['width'],
-          (json['html_attributions'] as List)?.cast<String>())
+      ? Photo(
+          json['photo_reference'],
+          json['height'],
+          json['width'],
+          json['html_attributions'] != null
+              ? (json['html_attributions'] as List)?.cast<String>()
+              : [])
       : null;
 }
 
@@ -713,8 +755,10 @@ class PlacesDetailsResponse extends GoogleResponse<PlaceDetails> {
       ? PlacesDetailsResponse(
           json['status'],
           json['error_message'],
-          PlaceDetails.fromJson(json['result']),
-          (json['html_attributions'] as List)?.cast<String>())
+          json['result'] != null ? PlaceDetails.fromJson(json['result']) : null,
+          json['html_attributions'] != null
+              ? (json['html_attributions'] as List)?.cast<String>()
+              : [])
       : null;
 }
 
@@ -780,9 +824,9 @@ class PlacesAutocompleteResponse extends GoogleResponseStatus {
           json['status'],
           json['error_message'],
           json['predictions']
-              .map((p) => Prediction.fromJson(p))
-              .toList()
-              .cast<Prediction>())
+              ?.map((p) => Prediction.fromJson(p))
+              ?.toList()
+              ?.cast<Prediction>())
       : null;
 }
 
@@ -790,6 +834,7 @@ class Prediction {
   final String description;
   final String id;
   final List<Term> terms;
+  final int distanceMeters;
 
   /// JSON place_id
   final String placeId;
@@ -805,6 +850,7 @@ class Prediction {
       this.description,
       this.id,
       this.terms,
+      this.distanceMeters,
       this.placeId,
       this.reference,
       this.types,
@@ -816,14 +862,17 @@ class Prediction {
           json['description'],
           json['id'],
           json['terms']?.map((t) => Term.fromJson(t))?.toList()?.cast<Term>(),
+          json['distance_meters'],
           json['place_id'],
           json['reference'],
-          (json['types'] as List)?.cast<String>(),
+          json['types'] != null ? (json['types'] as List)?.cast<String>() : [],
           json['matched_substrings']
               ?.map((m) => MatchedSubstring.fromJson(m))
               ?.toList()
               ?.cast<MatchedSubstring>(),
-          StructuredFormatting.fromJson(json['structured_formatting']),
+          json['structured_formatting'] != null
+              ? StructuredFormatting.fromJson(json['structured_formatting'])
+              : null,
         )
       : null;
 }
@@ -836,6 +885,22 @@ class Term {
 
   factory Term.fromJson(Map json) =>
       json != null ? Term(json['offset'], json['value']) : null;
+
+  @override
+  String toString() {
+    return 'Term{offset: $offset, value: $value}';
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Term &&
+          runtimeType == other.runtimeType &&
+          offset == other.offset &&
+          value == other.value;
+
+  @override
+  int get hashCode => offset.hashCode ^ value.hashCode;
 }
 
 class MatchedSubstring {
@@ -846,6 +911,22 @@ class MatchedSubstring {
 
   factory MatchedSubstring.fromJson(Map json) =>
       json != null ? MatchedSubstring(json['offset'], json['length']) : null;
+
+  @override
+  String toString() {
+    return 'MatchedSubstring{offset: $offset, length: $length}';
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MatchedSubstring &&
+          runtimeType == other.runtimeType &&
+          offset == other.offset &&
+          length == other.length;
+
+  @override
+  int get hashCode => offset.hashCode ^ length.hashCode;
 }
 
 class StructuredFormatting {
